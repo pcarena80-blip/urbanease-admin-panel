@@ -16,6 +16,7 @@ function AppContent() {
   const [activePage, setActivePage] = useState('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { theme } = useTheme();
 
   useEffect(() => {
@@ -28,6 +29,7 @@ function AppContent() {
   // Clear search when switching pages
   useEffect(() => {
     setSearchQuery('');
+    setIsSidebarOpen(false);
   }, [activePage]);
 
   const handleLoginSuccess = () => {
@@ -66,11 +68,21 @@ function AppContent() {
   }
 
   return (
-    <div className={`flex h-screen ${theme === 'dark' ? 'bg-[#0D0D0D]' : 'bg-gray-50'}`}>
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onLogout={handleLogout} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-        <main className="flex-1 overflow-y-auto p-6">
+    <div className={`flex min-h-screen ${theme === 'dark' ? 'bg-[#0D0D0D]' : 'bg-gray-50'}`}>
+      <Sidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+      <div className="flex-1 flex min-w-0 flex-col overflow-hidden">
+        <Header
+          onLogout={handleLogout}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onMenuToggle={() => setIsSidebarOpen((prev) => !prev)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {renderPage()}
         </main>
       </div>

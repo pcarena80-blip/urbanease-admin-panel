@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Sun, Moon, User, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Sun, Moon, User, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRole } from '../contexts/RoleContext';
 
@@ -7,9 +7,10 @@ interface HeaderProps {
   onLogout: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onMenuToggle: () => void;
 }
 
-export function Header({ onLogout, searchQuery, onSearchChange }: HeaderProps) {
+export function Header({ onLogout, searchQuery, onSearchChange, onMenuToggle }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { role } = useRole();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -27,9 +28,17 @@ export function Header({ onLogout, searchQuery, onSearchChange }: HeaderProps) {
   }, []);
 
   return (
-    <header className={`${theme === 'dark' ? 'bg-[#1A1A1A] border-[#333333]' : 'bg-white border-gray-200'} border-b px-6 py-4`}>
-      <div className="flex items-center justify-between">
-        <div className="flex-1 max-w-xl">
+    <header className={`${theme === 'dark' ? 'bg-[#1A1A1A] border-[#333333]' : 'bg-white border-gray-200'} border-b px-4 py-4 sm:px-6`}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3 md:flex-1 md:max-w-xl">
+          <button
+            type="button"
+            onClick={onMenuToggle}
+            className={`rounded-xl p-3 md:hidden ${theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-100'} transition-colors`}
+            aria-label="Open navigation"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <div className="relative">
             <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${theme === 'dark' ? 'text-white opacity-40' : 'text-gray-400'} w-5 h-5`} />
             <input
@@ -37,14 +46,14 @@ export function Header({ onLogout, searchQuery, onSearchChange }: HeaderProps) {
               placeholder="Search residents, complaints, or notices…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className={`w-full pl-12 pr-4 py-3 rounded-xl border ${theme === 'dark'
+              className={`w-full min-w-0 pl-12 pr-4 py-3 rounded-xl border ${theme === 'dark'
                 ? 'bg-[#1F1F1F] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
                 : 'bg-white border-gray-200 focus:border-[#00c878]'
                 } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
             />
           </div>
         </div>
-        <div className="flex items-center gap-4 ml-6">
+        <div className="flex items-center justify-between gap-3 md:ml-6 md:justify-end">
           <button
             onClick={toggleTheme}
             className={`p-3 rounded-xl ${theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-100'} transition-colors`}
@@ -60,12 +69,12 @@ export function Header({ onLogout, searchQuery, onSearchChange }: HeaderProps) {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className={`flex items-center gap-3 pl-4 py-1 pr-2 rounded-xl ${theme === 'dark' ? 'border-[#333333] hover:bg-[#2A2A2A]' : 'border-gray-200 hover:bg-gray-50'} border-l transition-colors`}
+              className={`flex items-center gap-2 pl-3 py-1 pr-2 rounded-xl ${theme === 'dark' ? 'border-[#333333] hover:bg-[#2A2A2A]' : 'border-gray-200 hover:bg-gray-50'} border-l transition-colors`}
             >
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00c878] to-[#00e68a] flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
               </div>
-              <div className="text-left">
+              <div className="hidden text-left sm:block">
                 <p className={`font-medium ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>
                   {role === 'superadmin' ? 'Super Admin' : 'Admin'}
                 </p>

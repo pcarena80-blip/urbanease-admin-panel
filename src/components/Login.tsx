@@ -53,8 +53,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
     return (
         <div className="flex min-h-screen bg-white">
             {/* LEFT SIDE - LOGIN FORM */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 bg-white">
-                <div className="w-full max-w-md space-y-8">
+            <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-8 sm:px-6 lg:p-16 bg-white">
+                <div className="w-full max-w-md space-y-6 sm:space-y-8">
                     {/* Brand Header */}
                     <div className="flex items-center gap-2 mb-8">
                         <div className="p-2 bg-[#00c878] rounded-lg">
@@ -67,7 +67,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome Back</h2>
                         <p className="text-gray-500">Please sign in to your admin account</p>
                     </div>
 
@@ -118,7 +118,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-2">
+                            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -128,7 +128,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                                     />
                                     <span className="text-sm text-gray-600">Remember me</span>
                                 </label>
-                                <a href="#" className="text-sm font-medium text-[#00c878] hover:text-[#009624] transition-colors">
+                                <a href="#" className="self-start text-sm font-medium text-[#00c878] hover:text-[#009624] transition-colors sm:self-auto">
                                     Forgot password?
                                 </a>
                             </div>

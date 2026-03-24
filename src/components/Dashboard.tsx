@@ -103,19 +103,19 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#00c878] to-[#00e68a] rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex items-start justify-between">
+      <div className="bg-gradient-to-r from-[#00c878] to-[#00e68a] rounded-2xl p-5 sm:p-8 text-white shadow-lg">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-3xl mb-2">{getGreeting()}, {role === 'superadmin' ? 'Super Admin' : 'Admin'}!</h1>
+            <h1 className="text-2xl sm:text-3xl mb-2">{getGreeting()}, {role === 'superadmin' ? 'Super Admin' : 'Admin'}!</h1>
             <p className="text-white/90 mb-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
             <p className="text-white/80 italic">Convenience Meets Community</p>
           </div>
-          <div className="flex gap-4">
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-4 sm:px-6">
               <p className="text-white/80 text-sm mb-1">Active Residents</p>
               <p className="text-2xl">{loading ? '--' : stats.activeResidents}</p>
             </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-4">
+            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-4 sm:px-6">
               <p className="text-white/80 text-sm mb-1">System Status</p>
               <p className="text-xl flex items-center gap-2">
                 <Activity className="w-5 h-5" />
@@ -135,7 +135,7 @@ export function Dashboard() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:gap-6">
           {loading ? (
             <>
               <CardSkeleton /><CardSkeleton /><CardSkeleton /><CardSkeleton />
@@ -206,7 +206,7 @@ export function Dashboard() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {graphLoading ? (
             <>
               <GraphSkeleton /><GraphSkeleton />
