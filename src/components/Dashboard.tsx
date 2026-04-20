@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { AlertTriangle, Bell, Building2, CalendarDays, CreditCard, LifeBuoy, RefreshCw, ShoppingBag, UserCircle, UserCog, Users } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext';
@@ -49,6 +50,25 @@ const defaultGraphs: GraphData = {
   resolutionData: [],
 };
 
+const isMissingGraphsEndpoint = (error: unknown) => {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  if (error.response?.status !== 404) {
+    return false;
+  }
+
+  const payload = error.response?.data;
+  const message = typeof payload === 'string'
+    ? payload
+    : typeof payload?.message === 'string'
+      ? payload.message
+      : '';
+
+  return /stats\/graphs/i.test(message) || /Cannot GET/i.test(message);
+};
+
 export function Dashboard() {
   const { theme } = useTheme();
   const { role } = useRole();
@@ -82,6 +102,13 @@ export function Dashboard() {
       });
       setGraphsError(null);
     } catch (error) {
+      if (isMissingGraphsEndpoint(error)) {
+        console.warn('Dashboard graphs endpoint is not available on the current backend. Showing dashboard stats without graph overlays.');
+        setGraphs(defaultGraphs);
+        setGraphsError(null);
+        return;
+      }
+
       console.error('Failed to fetch dashboard graphs', error);
       setGraphsError(getApiErrorMessage(error, 'Dashboard graph data could not be loaded.'));
     } finally {
