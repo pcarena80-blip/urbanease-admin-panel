@@ -8,4 +8,8 @@
   Run `npm i` to install the dependencies.
 
   Run `npm run dev` to start the development server.
+
+  ## Production API
+
+  Set `VITE_API_URL=https://urbanease-backend-suham.onrender.com/api` for production deployments.
   
