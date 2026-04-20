@@ -48,6 +48,14 @@ export function Residents({ searchQuery = '' }: { searchQuery?: string }) {
 
   useEffect(() => {
     fetchUsers();
+    const intervalId = window.setInterval(fetchUsers, 15000);
+    const handleFocus = () => fetchUsers();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const handleVerify = async (userId: string, isVerified: boolean) => {
@@ -93,7 +101,7 @@ export function Residents({ searchQuery = '' }: { searchQuery?: string }) {
   const getStatusBadge = (isVerified: boolean) => {
     if (isVerified) {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-50 text-green-600 text-sm">
+        <span className="inline-flex items-center gap-1 rounded-full border border-[#57cf85]/20 bg-[#57cf85]/12 px-3 py-1 text-sm text-[#57cf85]">
           <CheckCircle className="w-4 h-4" />
           Verified
         </span>
@@ -122,7 +130,7 @@ export function Residents({ searchQuery = '' }: { searchQuery?: string }) {
         {!user.isVerified ? (
           <button
             onClick={() => handleVerify(user._id, true)}
-            className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            className="flex items-center gap-1 rounded-lg bg-[#57cf85] px-3 py-2 text-sm text-white transition-colors hover:bg-[#4fc57a]"
             title="Verify User"
           >
             <Check className="w-4 h-4" />
@@ -208,7 +216,7 @@ export function Residents({ searchQuery = '' }: { searchQuery?: string }) {
                 <tr key={user._id} className={theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00c878] to-[#00e68a] flex items-center justify-center text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#57cf85] text-white">
                         {user.name ? user.name.charAt(0) : '?'}
                       </div>
                       <span className={theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}>{user.name || 'Unknown'}</span>

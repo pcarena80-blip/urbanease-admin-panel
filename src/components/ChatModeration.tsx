@@ -1,110 +1,70 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Filter, Trash2, Ban, Flag, ImageIcon } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../services/api';
 import { toast } from 'sonner';
-
-// Derive the server root URL from the API base URL (strip /api)
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const SERVER_ROOT = API_BASE.replace(/\/api\/?$/, '');
-
+import { useLiveRefresh } from './AdminShared';
+import { resolveMediaUrl } from '../utils/media';
 
 interface Message {
   id: string;
   user: string;
   message: string;
   time: string;
+  timestamp?: string;
   flagged: boolean;
   senderId?: string;
   attachment?: string;
-  attachmentType?: string;
+  attachmentType?: string | null;
+  attachmentName?: string;
 }
 
 export function ChatModeration() {
   const { theme } = useTheme();
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<'all' | 'flagged'>('all');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const clean = path.replace(/\\/g, '/').replace(/^\//, '');
-    return `${SERVER_ROOT}/${clean}`;
-  };
+  const [error, setError] = useState<string | null>(null);
 
   const fetchMessages = async () => {
     try {
-      const [communityResponse, reportsResponse] = await Promise.all([
-        api.get('/chat/community'),
-        api.get('/chat/reports')
-      ]);
+      if (messages.length === 0) {
+        setLoading(true);
+      }
 
-      // Map backend response to component format
-      const communityMessages = communityResponse.data.map((msg: any) => ({
-        id: msg.id,
-        user: msg.name || 'Unknown User',
-        message: msg.message || '',
-        time: msg.time,
-        flagged: false,
-        senderId: msg.senderId,
-        attachment: msg.attachment || null,
-        attachmentType: msg.attachmentType || null,
-        rawTime: msg.timestamp // Keep raw timestamp for sorting
-      }));
+      const response = await api.get('/admin/chat/messages');
+      const nextMessages = Array.isArray(response.data) ? response.data : [];
 
-      const reportedMessages = reportsResponse.data.map((msg: any) => ({
-        id: msg.id,
-        user: msg.name || 'Unknown User',
-        message: msg.message || '',
-        time: msg.time,
-        flagged: true, // Explicitly flagged
-        senderId: msg.senderId,
-        attachment: msg.attachment || null,
-        attachmentType: msg.attachmentType || null,
-        rawTime: msg.timestamp
-      }));
-
-      // Merge and De-duplicate (Reports take precedence for 'flagged' status)
-      const messageMap = new Map();
-
-      communityMessages.forEach((msg: any) => messageMap.set(msg.id, msg));
-      reportedMessages.forEach((msg: any) => messageMap.set(msg.id, msg));
-
-      const mergedMessages = Array.from(messageMap.values()).sort((a: any, b: any) => {
-        return new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime();
-      });
-
-      setMessages(mergedMessages);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+      setMessages(nextMessages);
+      setError(null);
+    } catch (requestError) {
+      console.error('Error fetching admin chat messages:', requestError);
+      setError('Chat moderation data could not be loaded right now.');
       toast.error('Failed to load messages');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMessages();
-  }, []);
+  useLiveRefresh(fetchMessages, 15000, [messages.length]);
 
   const handleDelete = async (id: string) => {
     try {
-      // Optimistic update
-      setMessages(prev => prev.filter(msg => msg.id !== id));
-      await api.delete(`/chat/${id}`);
+      setMessages((currentMessages) => currentMessages.filter((message) => message.id !== id));
+      await api.delete(`/admin/chat/messages/${id}`);
       toast.success('Message deleted');
-    } catch (error) {
-      console.error('Error deleting message:', error);
+    } catch (requestError) {
+      console.error('Error deleting message:', requestError);
       toast.error('Failed to delete message');
-      // Revert on error
       fetchMessages();
     }
   };
 
-  const filteredMessages = messages.filter((msg) => {
-    if (filter === 'all') return true;
-    if (filter === 'flagged') return msg.flagged;
+  const filteredMessages = messages.filter((message) => {
+    if (filter === 'flagged') {
+      return message.flagged;
+    }
+
     return true;
   });
 
@@ -116,27 +76,29 @@ export function ChatModeration() {
           <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>Monitor and moderate community chat messages</p>
         </div>
         <div className="flex items-center gap-3">
-          <Filter className={`w-5 h-5 ${theme === 'dark' ? 'text-white opacity-70' : 'text-gray-600'}`} />
+          <Filter className={`h-5 w-5 ${theme === 'dark' ? 'text-white opacity-70' : 'text-gray-600'}`} />
           <div className="flex gap-2">
             <button
               onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-lg transition-colors ${filter === 'all'
-                ? 'bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white'
-                : theme === 'dark'
-                  ? 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+              className={`rounded-lg px-4 py-2 transition-colors ${
+                filter === 'all'
+                  ? 'bg-[#57cf85] text-white'
+                  : theme === 'dark'
+                    ? 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
             >
               All Messages
             </button>
             <button
               onClick={() => setFilter('flagged')}
-              className={`px-4 py-2 rounded-lg transition-colors ${filter === 'flagged'
-                ? 'bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white'
-                : theme === 'dark'
-                  ? 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+              className={`rounded-lg px-4 py-2 transition-colors ${
+                filter === 'flagged'
+                  ? 'bg-[#57cf85] text-white'
+                  : theme === 'dark'
+                    ? 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
             >
               Flagged Messages
             </button>
@@ -146,99 +108,113 @@ export function ChatModeration() {
 
       <div className="grid gap-3">
         {loading ? (
-          <div className={`text-center py-10 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-            Loading messages...
-          </div>
+          <div className={`py-10 text-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Loading messages...</div>
+        ) : error ? (
+          <div className={`py-10 text-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{error}</div>
         ) : filteredMessages.length === 0 ? (
-          <div className={`text-center py-10 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-            No messages found.
+          <div className={`py-10 text-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+            {messages.length === 0 ? 'No community chat messages have been posted yet.' : 'No messages match the selected filter.'}
           </div>
         ) : (
-          filteredMessages.map((msg) => (
+          filteredMessages.map((message) => (
             <div
-              key={msg.id}
-              className={`rounded-xl p-5 shadow-sm border ${msg.flagged
-                ? theme === 'dark'
-                  ? 'bg-red-500/10 border-red-500/30'
-                  : 'bg-red-50/30 border-red-200'
-                : theme === 'dark'
-                  ? 'bg-[#1F1F1F] border-[#333333]'
-                  : 'bg-white border-gray-100'
-                }`}
+              key={message.id}
+              className={`rounded-xl border p-5 shadow-sm ${
+                message.flagged
+                  ? theme === 'dark'
+                    ? 'border-red-500/30 bg-red-500/10'
+                    : 'border-red-200 bg-red-50/30'
+                  : theme === 'dark'
+                    ? 'border-[#333333] bg-[#1F1F1F]'
+                    : 'border-gray-100 bg-white'
+              }`}
             >
               <div className="flex items-start justify-between">
-                <div className="flex gap-3 flex-1">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00c878] to-[#00e68a] flex items-center justify-center text-white flex-shrink-0">
-                    {msg.user.charAt(0)}
+                <div className="flex flex-1 gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#57cf85] text-white">
+                    {message.user.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className={theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}>{msg.user}</p>
-                      <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{msg.time}</span>
-                      {msg.flagged && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${theme === 'dark' ? 'bg-red-500/30 text-red-300' : 'bg-red-100 text-red-600'
-                          }`}>
-                          <Flag className="w-3 h-3" />
+                    <div className="mb-1 flex items-center gap-2">
+                      <p className={theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}>{message.user}</p>
+                      <span className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{message.time}</span>
+                      {message.flagged ? (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
+                            theme === 'dark' ? 'bg-red-500/30 text-red-300' : 'bg-red-100 text-red-600'
+                          }`}
+                        >
+                          <Flag className="h-3 w-3" />
                           Flagged
                         </span>
-                      )}
+                      ) : null}
                     </div>
-                    {/* Image attachment preview */}
-                    {msg.attachment && msg.attachmentType === 'image' && (
+
+                    {message.attachment && message.attachmentType === 'image' ? (
                       <div className="mb-2">
-                        <a href={getImageUrl(msg.attachment)} target="_blank" rel="noopener noreferrer">
+                        <a href={resolveMediaUrl(message.attachment)} target="_blank" rel="noopener noreferrer">
                           <img
-                            src={getImageUrl(msg.attachment)}
-                            alt="Chat attachment"
-                            className="max-w-[200px] max-h-[150px] rounded-lg object-cover border border-gray-200 hover:opacity-90 transition-opacity"
-                            onError={(e) => {
-                              // Replace broken image with a placeholder link
-                              const el = e.target as HTMLImageElement;
-                              const parent = el.parentElement;
-                              if (parent) {
-                                const filename = msg.attachment!.split('/').pop() || 'image';
-                                parent.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;background:#f3f4f6;color:#3b82f6;font-size:13px;">🖼️ ${filename}</span>`;
-                              }
-                            }}
+                            src={resolveMediaUrl(message.attachment)}
+                            alt={message.attachmentName || 'Chat attachment'}
+                            className="max-h-[150px] max-w-[200px] rounded-lg border border-gray-200 object-cover transition-opacity hover:opacity-90"
                           />
                         </a>
                       </div>
-                    )}
-                    {/* Non-image file attachment */}
-                    {msg.attachment && msg.attachmentType !== 'image' && (
+                    ) : null}
+
+                    {message.attachment && message.attachmentType !== 'image' ? (
                       <div className="mb-2">
                         <a
-                          href={getImageUrl(msg.attachment)}
+                          href={resolveMediaUrl(message.attachment)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${theme === 'dark' ? 'bg-[#2A2A2A] text-blue-400 hover:bg-[#333333]' : 'bg-gray-100 text-blue-600 hover:bg-gray-200'}`}
+                          className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm ${
+                            theme === 'dark'
+                              ? 'bg-[#2A2A2A] text-[#57cf85] hover:bg-[#333333]'
+                              : 'bg-[#57cf85]/12 text-[#57cf85] hover:bg-[#57cf85]/20'
+                          }`}
                         >
-                          <ImageIcon className="w-4 h-4" />
-                          📎 File Attachment
+                          <ImageIcon className="h-4 w-4" />
+                          {message.attachmentName || 'Attachment'}
                         </a>
                       </div>
-                    )}
-                    {msg.message && (
-                      <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{msg.message}</p>
-                    )}
+                    ) : null}
+
+                    {message.message ? (
+                      <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{message.message}</p>
+                    ) : null}
                   </div>
                 </div>
-                <div className="flex gap-2 ml-4">
+
+                <div className="ml-4 flex gap-2">
                   <button
-                    onClick={() => handleDelete(msg.id)}
-                    className={`p-2 rounded-lg transition-colors group ${theme === 'dark' ? 'hover:bg-red-500/20' : 'hover:bg-red-50'
-                      }`}
+                    onClick={() => handleDelete(message.id)}
+                    className={`group rounded-lg p-2 transition-colors ${
+                      theme === 'dark' ? 'hover:bg-red-500/20' : 'hover:bg-red-50'
+                    }`}
                     title="Delete Message"
                   >
-                    <Trash2 className={`w-5 h-5 ${theme === 'dark' ? 'text-white opacity-70 group-hover:text-red-400' : 'text-gray-600 group-hover:text-red-600'}`} />
-                  </button>
-                  {/* Block User functionality not yet implemented in API */}
-                  <button
-                    className={`p-2 rounded-lg transition-colors group ${theme === 'dark' ? 'hover:bg-orange-500/20' : 'hover:bg-orange-50'
+                    <Trash2
+                      className={`h-5 w-5 ${
+                        theme === 'dark'
+                          ? 'text-white opacity-70 group-hover:text-red-400'
+                          : 'text-gray-600 group-hover:text-red-600'
                       }`}
+                    />
+                  </button>
+                  <button
+                    className={`group rounded-lg p-2 transition-colors ${
+                      theme === 'dark' ? 'hover:bg-orange-500/20' : 'hover:bg-orange-50'
+                    }`}
                     title="Block User"
                   >
-                    <Ban className={`w-5 h-5 ${theme === 'dark' ? 'text-white opacity-70 group-hover:text-orange-400' : 'text-gray-600 group-hover:text-orange-600'}`} />
+                    <Ban
+                      className={`h-5 w-5 ${
+                        theme === 'dark'
+                          ? 'text-white opacity-70 group-hover:text-orange-400'
+                          : 'text-gray-600 group-hover:text-orange-600'
+                      }`}
+                    />
                   </button>
                 </div>
               </div>

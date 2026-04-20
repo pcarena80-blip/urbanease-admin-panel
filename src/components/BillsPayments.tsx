@@ -1,213 +1,436 @@
-import { useState, useEffect } from 'react';
-import { Upload, Download, CheckCircle, XCircle, Send, Eye, Edit, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BanknoteArrowUp, CreditCard, Receipt, Send } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiErrors';
+import { AdminPanel, ApiStatusBanner, PageIntro, StatusBadge, formatDateTime, getAdminTheme, useLiveRefresh } from './AdminShared';
 
-interface Bill {
+type Bill = {
   _id: string;
-  userId: {
-    name: string;
+  userId?: string | {
+    _id?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
   };
   type: string;
-  month: string;
+  provider: string;
+  billId: string;
+  referenceId: string;
   amount: number;
-  status: string;
+  status: 'paid' | 'due' | 'upcoming' | 'failed';
   dueDate: string;
+  billingMonth: string;
   paidDate?: string;
-}
+  method?: string;
+};
 
-export function BillsPayments() {
-  const { theme } = useTheme();
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showDispatchModal, setShowDispatchModal] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [dispatchData, setDispatchData] = useState({
-    types: [] as string[],
-    month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-    dueDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0]
-  });
-
-  const handleDispatch = async () => {
-    setProcessing(true);
-    try {
-      await api.post('/admin/bills/dispatch', dispatchData);
-      alert('Bills generated successfully for all verified residents');
-      setDispatchData({
-        types: [],
-        month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0]
-      });
-    } catch (error: any) {
-      console.error(error);
-      alert(`Failed to dispatch bills: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setProcessing(false);
-    }
+type Transaction = {
+  _id: string;
+  orderId: string;
+  amount: number;
+  currency?: string;
+  status: 'pending' | 'success' | 'failed' | 'cancelled';
+  paymentMethod?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  userId?: string | {
+    _id?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
   };
+  billId?: {
+    type?: string;
+    amount?: number;
+    dueDate?: string;
+    status?: string;
+    referenceId?: string;
+    billId?: string;
+  };
+};
 
-  const fetchBills = async () => {
+type ResidentDirectoryEntry = {
+  _id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+};
+
+const defaultDispatchState = () => ({
+  types: ['maintenance'] as string[],
+  month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+  dueDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0],
+});
+
+export function BillsPayments({ searchQuery = '' }: { searchQuery?: string }) {
+  const { theme } = useTheme();
+  const styles = getAdminTheme(theme);
+  const [activeTab, setActiveTab] = useState<'billing' | 'payments'>('billing');
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [residentDirectory, setResidentDirectory] = useState<ResidentDirectoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchData, setDispatchData] = useState(defaultDispatchState());
+
+  const loadFinance = async () => {
     try {
-      const response = await api.get('/admin/bills');
-      setBills(response.data);
+      const [billRes, transactionRes, residentRes] = await Promise.all([
+        api.get('/admin/bills'),
+        api.get('/admin/transactions'),
+        api.get('/admin/users'),
+      ]);
+      setBills(Array.isArray(billRes.data) ? billRes.data : []);
+      setTransactions(Array.isArray(transactionRes.data) ? transactionRes.data : []);
+      setResidentDirectory(Array.isArray(residentRes.data) ? residentRes.data : []);
+      setError(null);
     } catch (error) {
-      console.error("Failed to fetch bills", error);
+      console.error('Failed to fetch finance data', error);
+      setError(getApiErrorMessage(error, 'Billing data could not be loaded.'));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBills();
-  }, []);
+  useLiveRefresh(loadFinance, 15000, []);
 
-  const handleToggleStatus = async (bill: Bill) => {
-    const newStatus = bill.status === 'paid' ? 'due' : 'paid';
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const matches = (...values: Array<string | number | undefined>) =>
+    !normalizedQuery || values.filter((value) => value !== undefined && value !== null).join(' ').toLowerCase().includes(normalizedQuery);
+
+  const residentDirectoryMap = useMemo(() => {
+    const map = new Map<string, ResidentDirectoryEntry>();
+    residentDirectory.forEach((resident) => {
+      if (resident?._id) {
+        map.set(String(resident._id), resident);
+      }
+    });
+    return map;
+  }, [residentDirectory]);
+
+  const resolveResident = (userValue?: Bill['userId'] | Transaction['userId']) => {
+    if (!userValue) return undefined;
+
+    if (typeof userValue === 'string') {
+      return residentDirectoryMap.get(userValue);
+    }
+
+    const residentMatch = userValue._id ? residentDirectoryMap.get(String(userValue._id)) : undefined;
+
+    return {
+      _id: userValue._id,
+      name: userValue.name || residentMatch?.name,
+      email: userValue.email || residentMatch?.email,
+      phone: userValue.phone || residentMatch?.phone,
+    };
+  };
+
+  const filteredBills = useMemo(
+    () =>
+      bills.filter((bill) =>
+        matches(
+          resolveResident(bill.userId)?.name,
+          resolveResident(bill.userId)?.email,
+          bill.type,
+          bill.provider,
+          bill.billingMonth,
+          bill.referenceId,
+          bill.billId,
+          bill.amount,
+          bill.status,
+        ),
+      ),
+    [bills, normalizedQuery, residentDirectoryMap],
+  );
+
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter((txn) =>
+        matches(
+          resolveResident(txn.userId)?.name,
+          resolveResident(txn.userId)?.email,
+          txn.orderId,
+          txn.status,
+          txn.paymentMethod,
+          txn.billId?.referenceId,
+          txn.billId?.billId,
+          txn.amount,
+        ),
+      ),
+    [normalizedQuery, residentDirectoryMap, transactions],
+  );
+
+  const stats = [
+    { label: 'Bills', value: bills.length, icon: Receipt },
+    { label: 'Due Bills', value: bills.filter((item) => item.status === 'due').length, icon: BanknoteArrowUp },
+    { label: 'Transactions', value: transactions.length, icon: CreditCard },
+    { label: 'Successful Payments', value: transactions.filter((item) => item.status === 'success').length, icon: CreditCard },
+  ];
+
+  const handleDispatch = async () => {
+    setProcessing(true);
     try {
-      await api.put(`/admin/bills/${bill._id}/status`, { status: newStatus });
-      // Refresh list locally
-      setBills(bills.map(b => b._id === bill._id ? { ...b, status: newStatus, paidDate: newStatus === 'paid' ? new Date().toISOString() : undefined } : b));
-    } catch (error) {
-      console.error("Failed to update bill", error);
-      alert("Failed to update bill status");
+      await api.post('/admin/bills/dispatch', dispatchData);
+      setDispatchData(defaultDispatchState());
+      setShowDispatchModal(false);
+      await loadFinance();
+    } catch (error: any) {
+      alert(error?.response?.data?.message || 'Bills could not be dispatched.');
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString();
+  const toggleBillStatus = async (bill: Bill) => {
+    const nextStatus = bill.status === 'paid' ? 'due' : 'paid';
+    try {
+      const response = await api.put(`/admin/bills/${bill._id}/status`, { status: nextStatus });
+      setBills((prev) => prev.map((item) => (item._id === bill._id ? { ...item, ...response.data } : item)));
+    } catch (error: any) {
+      alert(error?.response?.data?.message || 'The bill status could not be updated.');
+    }
+  };
+
+  const deleteBill = async (billId: string) => {
+    if (!window.confirm('Delete this bill from the live billing system?')) return;
+    try {
+      await api.delete(`/admin/bills/${billId}`);
+      setBills((prev) => prev.filter((item) => item._id !== billId));
+    } catch (error: any) {
+      alert(error?.response?.data?.message || 'The bill could not be deleted.');
+    }
   };
 
   return (
     <div className="space-y-6">
+      <PageIntro
+        theme={theme}
+        title="Billing & Payments"
+        description="Dispatch resident bills, track paid and due balances, and monitor the full online payment pipeline."
+        actions={
+          <button onClick={() => setShowDispatchModal(true)} className="rounded-2xl bg-[#57cf85] px-4 py-3 text-sm font-semibold text-white">
+            Dispatch Bills
+          </button>
+        }
+      />
 
-      {/* Dispatch Bill Modal */}
-      {
-        showDispatchModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className={`p-6 rounded-xl w-full max-w-md ${theme === 'dark' ? 'bg-[#1F1F1F] text-white' : 'bg-white text-gray-900'}`}>
-              <h3 className="text-xl font-semibold mb-4">Dispatch Monthly Bills</h3>
-              <div className="space-y-4">
+      {error ? (
+        <ApiStatusBanner
+          title="Billing data is offline"
+          message={error}
+        />
+      ) : null}
 
-                {/* Multi-Select Types */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((item) => {
+          const Icon = item.icon;
+          return (
+            <AdminPanel key={item.label} theme={theme} className="p-5">
+              <div className="flex items-start justify-between">
                 <div>
-                  <label className="block text-sm mb-2 text-gray-400">Select Bill Types</label>
-                  <div className="flex gap-4">
-                    {['Maintenance'].map(type => (
-                      <label key={type} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={dispatchData.types.includes(type)}
-                          onChange={(e) => {
-                            if (e.target.checked) setDispatchData({ ...dispatchData, types: [...dispatchData.types, type] });
-                            else setDispatchData({ ...dispatchData, types: dispatchData.types.filter(t => t !== type) });
-                          }}
-                          className="rounded border-gray-600 bg-transparent text-green-500 focus:ring-green-500"
+                  <p className={`text-sm ${styles.mutedText}`}>{item.label}</p>
+                  <p className={`mt-2 text-3xl font-semibold ${styles.pageTitle}`}>{item.value}</p>
+                </div>
+                <div className="rounded-2xl bg-[#57cf85]/12 p-3 text-[#57cf85]">
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
+            </AdminPanel>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        {[
+          ['billing', 'Billing'],
+          ['payments', 'Online Payments'],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setActiveTab(value as 'billing' | 'payments')}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeTab === value ? 'bg-[#57cf85] text-white' : theme === 'dark' ? 'bg-[#1F1F1F] text-slate-300' : 'bg-white text-slate-600 border border-slate-200'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'billing' ? (
+        <AdminPanel theme={theme} className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className={`${styles.tableHeader} border-b`}>
+                <tr>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.15em]">Resident</th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.15em]">Bill</th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.15em]">Amount</th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.15em]">Status</th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.15em]">Dates</th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.15em]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-500">Loading bills...</td>
+                  </tr>
+                ) : filteredBills.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-500">No bills match the current search.</td>
+                  </tr>
+                ) : (
+                  filteredBills.map((bill) => (
+                    <tr key={bill._id} className={`${styles.tableRow} border-b align-top`}>
+                      <td className="px-5 py-4">
+                        <div className={`font-semibold ${styles.pageTitle}`}>{resolveResident(bill.userId)?.name || 'Resident'}</div>
+                        <div className={`mt-1 text-sm ${styles.mutedText}`}>{resolveResident(bill.userId)?.email || 'Email unavailable'}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className={`font-medium ${styles.pageTitle}`}>{bill.type}</div>
+                        <div className={`mt-1 text-sm ${styles.mutedText}`}>{bill.provider}</div>
+                        <div className={`mt-1 text-xs ${styles.mutedText}`}>Bill ID {bill.billId} • Ref {bill.referenceId}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className={`font-semibold ${styles.pageTitle}`}>PKR {Number(bill.amount || 0).toLocaleString()}</div>
+                        <div className={`mt-1 text-sm ${styles.mutedText}`}>{bill.billingMonth}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <StatusBadge
+                          label={bill.status}
+                          tone={bill.status === 'paid' ? 'green' : bill.status === 'failed' ? 'red' : bill.status === 'upcoming' ? 'blue' : 'amber'}
                         />
-                        <span>{type}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className={`text-sm ${styles.pageTitle}`}>Due {bill.dueDate}</div>
+                        <div className={`mt-1 text-xs ${styles.mutedText}`}>Paid {formatDateTime(bill.paidDate)}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => toggleBillStatus(bill)} className="rounded-xl bg-[#57cf85]/12 px-3 py-2 text-sm font-medium text-[#57cf85]">
+                            Mark {bill.status === 'paid' ? 'Due' : 'Paid'}
+                          </button>
+                          <button onClick={() => deleteBill(bill._id)} className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </AdminPanel>
+      ) : null}
 
+      {activeTab === 'payments' ? (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {loading ? <AdminPanel theme={theme} className="p-6"><p className={`text-sm ${styles.mutedText}`}>Loading transactions...</p></AdminPanel> : null}
+          {!loading && filteredTransactions.length === 0 ? <AdminPanel theme={theme} className="p-6"><p className={`text-sm ${styles.mutedText}`}>No payment transactions match the current search.</p></AdminPanel> : null}
+          {filteredTransactions.map((txn) => (
+            <AdminPanel key={txn._id} theme={theme} className="p-5">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <label className="block text-sm mb-1 text-gray-400">Billing Month</label>
-                  <input className="w-full p-2 rounded border border-gray-600 bg-transparent" placeholder="e.g. January 2025" value={dispatchData.month} onChange={e => setDispatchData({ ...dispatchData, month: e.target.value })} />
+                  <h3 className={`text-lg font-semibold ${styles.pageTitle}`}>{txn.orderId}</h3>
+                  <p className={`mt-1 text-sm ${styles.mutedText}`}>{resolveResident(txn.userId)?.name || 'Unknown user'} • {resolveResident(txn.userId)?.email || 'Email unavailable'}</p>
                 </div>
+                <StatusBadge
+                  label={txn.status}
+                  tone={txn.status === 'success' ? 'green' : txn.status === 'failed' || txn.status === 'cancelled' ? 'red' : 'amber'}
+                />
+              </div>
 
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className={`rounded-2xl border p-3 ${styles.panel}`}>
+                  <p className={`text-xs uppercase tracking-[0.15em] ${styles.mutedText}`}>Payment</p>
+                  <p className={`mt-2 text-sm ${styles.pageTitle}`}>PKR {Number(txn.amount || 0).toLocaleString()} {txn.currency || 'PKR'}</p>
+                  <p className={`mt-1 text-xs ${styles.mutedText}`}>{txn.paymentMethod || 'Method pending'}</p>
+                </div>
+                <div className={`rounded-2xl border p-3 ${styles.panel}`}>
+                  <p className={`text-xs uppercase tracking-[0.15em] ${styles.mutedText}`}>Linked Bill</p>
+                  <p className={`mt-2 text-sm ${styles.pageTitle}`}>{txn.billId?.type || 'No bill linked'}</p>
+                  <p className={`mt-1 text-xs ${styles.mutedText}`}>{txn.billId?.referenceId || txn.billId?.billId || 'Reference unavailable'}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <StatusBadge label={`Created ${formatDateTime(txn.createdAt)}`} tone="slate" />
+                <StatusBadge label={`Updated ${formatDateTime(txn.updatedAt)}`} tone="slate" />
+              </div>
+            </AdminPanel>
+          ))}
+        </div>
+      ) : null}
+
+      {showDispatchModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <div className={`${styles.card} w-full max-w-xl rounded-[28px] border p-6 shadow-2xl`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className={`text-xl font-semibold ${styles.pageTitle}`}>Dispatch Monthly Bills</h3>
+                <p className={`mt-1 text-sm ${styles.mutedText}`}>Generate connected bills for all registered residents.</p>
+              </div>
+              <button onClick={() => setShowDispatchModal(false)} className="rounded-full bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700">Close</button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className={`mb-2 block text-xs font-semibold uppercase tracking-[0.15em] ${styles.mutedText}`}>Bill Types</label>
+                <div className="flex flex-wrap gap-3">
+                  {['electricity', 'gas', 'maintenance'].map((type) => {
+                    const selected = dispatchData.types.includes(type);
+                    return (
+                      <button
+                        key={type}
+                        onClick={() =>
+                          setDispatchData((prev) => ({
+                            ...prev,
+                            types: selected ? prev.types.filter((item) => item !== type) : [...prev.types, type],
+                          }))
+                        }
+                        className={`rounded-full px-4 py-2 text-sm font-semibold ${selected ? 'bg-[#57cf85] text-white' : 'bg-slate-100 text-slate-700'}`}
+                      >
+                        {type}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm mb-1 text-gray-400">Due Date</label>
-                  <input className="w-full p-2 rounded border border-gray-600 bg-transparent" type="date" value={dispatchData.dueDate} onChange={e => setDispatchData({ ...dispatchData, dueDate: e.target.value })} />
+                  <label className={`mb-2 block text-xs font-semibold uppercase tracking-[0.15em] ${styles.mutedText}`}>Billing Month</label>
+                  <input
+                    value={dispatchData.month}
+                    onChange={(event) => setDispatchData((prev) => ({ ...prev, month: event.target.value }))}
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm ${styles.input}`}
+                  />
                 </div>
-
-                <div className="flex gap-2 justify-end mt-6">
-                  <button onClick={() => setShowDispatchModal(false)} className="px-4 py-2 rounded bg-gray-500 text-white">Cancel</button>
-                  <button onClick={handleDispatch} disabled={processing || dispatchData.types.length === 0} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">
-                    {processing ? 'Processing...' : 'Dispatch All'}
-                  </button>
+                <div>
+                  <label className={`mb-2 block text-xs font-semibold uppercase tracking-[0.15em] ${styles.mutedText}`}>Due Date</label>
+                  <input
+                    type="date"
+                    value={dispatchData.dueDate}
+                    onChange={(event) => setDispatchData((prev) => ({ ...prev, dueDate: event.target.value }))}
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm ${styles.input}`}
+                  />
                 </div>
               </div>
             </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setShowDispatchModal(false)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">Cancel</button>
+              <button onClick={handleDispatch} disabled={processing || dispatchData.types.length === 0} className="inline-flex items-center gap-2 rounded-2xl bg-[#57cf85] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                <Send className="h-4 w-4" />
+                {processing ? 'Dispatching...' : 'Dispatch Bills'}
+              </button>
+            </div>
           </div>
-        )
-      }
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className={`text-2xl ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>Bills & Payments</h2>
-          <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}>Manage utility bills and track payment status</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowDispatchModal(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white rounded-xl hover:shadow-lg transition-shadow">
-            <Send className="w-5 h-5" />
-            Dispatch Monthly Bills
-          </button>
-        </div>
-      </div>
-
-      <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl shadow-sm border overflow-hidden`}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className={`${theme === 'dark' ? 'bg-[#1A1A1A] border-[#333333]' : 'bg-gray-50 border-gray-200'} border-b`}>
-              <tr>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Resident Name</th>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Billing Month</th>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Type</th>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Amount</th>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Payment Status</th>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Payment Date</th>
-                <th className={`px-6 py-4 text-left ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className={`${theme === 'dark' ? 'divide-[#333333]' : 'divide-gray-200'} divide-y`}>
-              {loading ? <p className="p-4">Loading bills...</p> : bills.map((bill) => (
-                <tr key={bill._id} className={theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-50'}>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00c878] to-[#00e68a] flex items-center justify-center text-white">
-                        {bill.userId?.name.charAt(0)}
-                      </div>
-                      <span className={theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}>{bill.userId?.name}</span>
-                    </div>
-                  </td>
-                  <td className={`px-6 py-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{bill.month}</td>
-                  <td className={`px-6 py-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{bill.type}</td>
-                  <td className={`px-6 py-4 ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>Rs {bill.amount}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleStatus(bill)}
-                      className="focus:outline-none"
-                    >
-                      {bill.status === 'paid' ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-50 text-green-600 text-sm cursor-pointer hover:bg-green-100">
-                          <CheckCircle className="w-4 h-4" />
-                          Paid
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-600 text-sm cursor-pointer hover:bg-red-100">
-                          <XCircle className="w-4 h-4" />
-                          Unpaid
-                        </span>
-                      )}
-                    </button>
-                  </td>
-                  <td className={`px-6 py-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{formatDate(bill.paidDate)}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      {/* Actions placeholders */}
-                      <button className={`p-2 ${theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-100'} rounded-lg transition-colors`} title="View Bill">
-                        <Eye className={`w-5 h-5 ${theme === 'dark' ? 'text-white opacity-70' : 'text-gray-600'}`} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div >
+      ) : null}
+    </div>
   );
 }

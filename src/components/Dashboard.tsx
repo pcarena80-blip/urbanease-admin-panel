@@ -1,78 +1,110 @@
-import { useState, useEffect } from 'react';
-import { UserCircle, AlertTriangle, UserX, Bell, TrendingUp, Activity, RefreshCw, Loader2 } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useState } from 'react';
+import { AlertTriangle, Bell, Building2, CalendarDays, CreditCard, LifeBuoy, RefreshCw, ShoppingBag, UserCircle, UserCog, Users } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRole } from '../contexts/RoleContext';
 import api from '../services/api';
+import { getApiErrorMessage } from '../utils/apiErrors';
+import { AdminPanel, ApiStatusBanner, PageIntro, StatusBadge, getAdminTheme, useLiveRefresh } from './AdminShared';
 
-interface Stats {
+type Stats = {
   totalResidents: number;
   activeResidents: number;
   unverifiedResidents: number;
+  totalProviders: number;
+  pendingProviders: number;
   activeComplaints: number;
   pendingComplaints: number;
   activeNotices: number;
-}
+  openSosAlerts: number;
+  activeEvents: number;
+  propertyListings: number;
+  servicesCount: number;
+  lostFoundCount: number;
+};
 
-interface GraphData {
+type GraphData = {
   activityData: Array<{ time: string; logins: number; complaints: number; activity: number }>;
   resolutionData: Array<{ day: string; resolved: number; pending: number }>;
-}
+};
+
+const defaultStats: Stats = {
+  totalResidents: 0,
+  activeResidents: 0,
+  unverifiedResidents: 0,
+  totalProviders: 0,
+  pendingProviders: 0,
+  activeComplaints: 0,
+  pendingComplaints: 0,
+  activeNotices: 0,
+  openSosAlerts: 0,
+  activeEvents: 0,
+  propertyListings: 0,
+  servicesCount: 0,
+  lostFoundCount: 0,
+};
+
+const defaultGraphs: GraphData = {
+  activityData: [],
+  resolutionData: [],
+};
 
 export function Dashboard() {
   const { theme } = useTheme();
   const { role } = useRole();
+  const styles = getAdminTheme(theme);
+  const [stats, setStats] = useState<Stats>(defaultStats);
+  const [graphs, setGraphs] = useState<GraphData>(defaultGraphs);
   const [loading, setLoading] = useState(true);
   const [graphLoading, setGraphLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [graphError, setGraphError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [graphsError, setGraphsError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<Stats>({
-    totalResidents: 0,
-    activeResidents: 0,
-    unverifiedResidents: 0,
-    activeComplaints: 0,
-    pendingComplaints: 0,
-    activeNotices: 0
-  });
-
-  const [graphData, setGraphData] = useState<GraphData>({
-    activityData: [],
-    resolutionData: []
-  });
-
-  const fetchStats = async () => {
+  const loadStats = async () => {
     try {
-      setLoading(true);
-      setError(null);
       const response = await api.get('/admin/stats');
-      setStats(response.data);
-    } catch (err: any) {
-      console.error("Failed to fetch dashboard stats", err);
-      setError('Failed to load stats');
+      setStats({ ...defaultStats, ...(response.data || {}) });
+      setStatsError(null);
+    } catch (error) {
+      console.error('Failed to fetch admin stats', error);
+      setStatsError(getApiErrorMessage(error, 'Dashboard stats could not be loaded.'));
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchGraphData = async () => {
+  const loadGraphs = async () => {
     try {
-      setGraphLoading(true);
-      setGraphError(null);
       const response = await api.get('/admin/stats/graphs');
-      setGraphData(response.data);
-    } catch (err: any) {
-      console.error("Failed to fetch graph data", err);
-      setGraphError('Failed to load graphs');
+      setGraphs({
+        activityData: Array.isArray(response.data?.activityData) ? response.data.activityData : [],
+        resolutionData: Array.isArray(response.data?.resolutionData) ? response.data.resolutionData : [],
+      });
+      setGraphsError(null);
+    } catch (error) {
+      console.error('Failed to fetch dashboard graphs', error);
+      setGraphsError(getApiErrorMessage(error, 'Dashboard graph data could not be loaded.'));
     } finally {
       setGraphLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchStats();
-    fetchGraphData();
-  }, []);
+  useLiveRefresh(loadStats, 15000, []);
+  useLiveRefresh(loadGraphs, 20000, []);
+
+  const statsUnavailable = Boolean(statsError) && Object.values(stats).every((value) => value === 0);
+  const displayStat = (value: number) => (loading || statsUnavailable ? '--' : value);
+
+  const summaryCards = [
+    { label: 'Residents', value: stats.totalResidents, helper: `${stats.activeResidents} verified live`, icon: Users, tone: 'blue' },
+    { label: 'Providers', value: stats.totalProviders, helper: `${stats.pendingProviders} pending approval`, icon: UserCog, tone: 'amber' },
+    { label: 'Complaints', value: stats.activeComplaints, helper: `${stats.pendingComplaints} waiting`, icon: AlertTriangle, tone: 'red' },
+    { label: 'Announcements', value: stats.activeNotices, helper: 'Live on the notice board', icon: Bell, tone: 'slate' },
+    { label: 'Services', value: stats.servicesCount, helper: 'Marketplace listings', icon: ShoppingBag, tone: 'blue' },
+    { label: 'Property', value: stats.propertyListings, helper: 'Active sale and rent posts', icon: Building2, tone: 'blue' },
+    { label: 'Events', value: stats.activeEvents, helper: 'Upcoming community events', icon: CalendarDays, tone: 'green' },
+    { label: 'SOS', value: stats.openSosAlerts, helper: 'Open or acknowledged alerts', icon: LifeBuoy, tone: 'red' },
+  ] as const;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -81,209 +113,205 @@ export function Dashboard() {
     return 'Good Evening';
   };
 
-  // Loading skeleton for cards
-  const CardSkeleton = () => (
-    <div className={`${theme === 'dark' ? 'bg-[#1F1F1F]' : 'bg-white'} rounded-xl p-6 animate-pulse`}>
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl ${theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-gray-200'}`}></div>
-      </div>
-      <div className={`h-8 w-16 ${theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-gray-200'} rounded mb-2`}></div>
-      <div className={`h-4 w-24 ${theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-gray-200'} rounded`}></div>
-    </div>
-  );
-
-  // Loading skeleton for graphs
-  const GraphSkeleton = () => (
-    <div className={`${theme === 'dark' ? 'bg-[#1F1F1F]' : 'bg-white'} rounded-xl p-6 animate-pulse`}>
-      <div className={`h-6 w-40 ${theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-gray-200'} rounded mb-4`}></div>
-      <div className={`h-64 ${theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-gray-200'} rounded`}></div>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#00c878] to-[#00e68a] rounded-2xl p-5 sm:p-8 text-white shadow-lg">
+      <PageIntro
+        theme={theme}
+        title="UrbanEase Control Center"
+        description="One place to monitor residents, providers, finance, communication, safety, and every live module connected to the mobile app."
+        actions={
+          <button onClick={() => { loadStats(); loadGraphs(); }} className="inline-flex items-center gap-2 rounded-2xl bg-[#57cf85] px-4 py-3 text-sm font-semibold text-white">
+            <RefreshCw className="h-4 w-4" />
+            Refresh Now
+          </button>
+        }
+      />
+
+      {statsError || graphsError ? (
+        <ApiStatusBanner
+          title="Admin dashboard is not connected"
+          message={[statsError, graphsError].filter(Boolean).join(' ')}
+        />
+      ) : null}
+
+      <div className="rounded-[32px] bg-[#57cf85] p-6 text-white shadow-xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl mb-2">{getGreeting()}, {role === 'superadmin' ? 'Super Admin' : 'Admin'}!</h1>
-            <p className="text-white/90 mb-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <p className="text-white/80 italic">Convenience Meets Community</p>
+            <h1 className="text-3xl font-semibold">{getGreeting()}, {role === 'superadmin' ? 'Super Admin' : 'Admin'}</h1>
+            <p className="mt-2 text-sm text-white/85">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+            <p className="mt-3 max-w-2xl text-sm text-white/80">
+              UrbanEase is now running as an all-in-one resident platform with profiles, billing, announcements, chat, services,
+              carpooling, lost and found, property, events, SOS, and provider workflows connected through one admin panel.
+            </p>
           </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-4 sm:px-6">
-              <p className="text-white/80 text-sm mb-1">Active Residents</p>
-              <p className="text-2xl">{loading ? '--' : stats.activeResidents}</p>
+            <div className="rounded-2xl bg-white/15 px-5 py-4 backdrop-blur">
+              <p className="text-sm text-white/75">Live Verification Queue</p>
+              <p className="mt-2 text-2xl font-semibold">{displayStat(stats.unverifiedResidents)}</p>
+              <p className="mt-1 text-xs text-white/70">Residents waiting for approval</p>
             </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-4 sm:px-6">
-              <p className="text-white/80 text-sm mb-1">System Status</p>
-              <p className="text-xl flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                All Good
-              </p>
+            <div className="rounded-2xl bg-white/15 px-5 py-4 backdrop-blur">
+              <p className="text-sm text-white/75">Lost & Found Open</p>
+              <p className="mt-2 text-2xl font-semibold">{displayStat(stats.lostFoundCount)}</p>
+              <p className="mt-1 text-xs text-white/70">Community items still unresolved</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {error ? (
-        <div className={`${theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50'} rounded-xl p-6 text-center`}>
-          <p className={`${theme === 'dark' ? 'text-red-400' : 'text-red-600'} mb-3`}>{error}</p>
-          <button onClick={fetchStats} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg mx-auto hover:bg-red-700">
-            <RefreshCw className="w-4 h-4" /> Retry
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:gap-6">
-          {loading ? (
-            <>
-              <CardSkeleton /><CardSkeleton /><CardSkeleton /><CardSkeleton />
-            </>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <AdminPanel key={card.label} theme={theme} className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className={`text-sm ${styles.mutedText}`}>{card.label}</p>
+                  <p className={`mt-2 text-3xl font-semibold ${styles.pageTitle}`}>{displayStat(card.value)}</p>
+                  <p className={`mt-1 text-sm ${styles.mutedText}`}>{card.helper}</p>
+                </div>
+                <div className="rounded-2xl bg-[#57cf85]/12 p-3 text-[#57cf85]">
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
+            </AdminPanel>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr]">
+        <AdminPanel theme={theme} className="p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className={`text-lg font-semibold ${styles.pageTitle}`}>Platform Activity</h3>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>Resident logins and complaint creation over the last 24 hours.</p>
+            </div>
+            <StatusBadge label={graphLoading ? 'Refreshing' : 'Live'} tone={graphLoading ? 'amber' : 'green'} />
+          </div>
+
+          {graphs.activityData.length === 0 ? (
+            <div className={`flex h-[300px] items-center justify-center rounded-3xl border ${styles.panel}`}>
+              <p className={`text-sm ${styles.mutedText}`}>No activity graph data is available yet.</p>
+            </div>
           ) : (
-            <>
-              {/* Total Residents */}
-              <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-3 ${theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-green-50'} rounded-xl`}>
-                    <UserCircle className={`w-6 h-6 ${theme === 'dark' ? 'text-white opacity-70' : 'text-[#00c878]'}`} />
-                  </div>
-                  <div className="flex items-center gap-1 text-green-600 text-sm">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className={`text-3xl mb-1 ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>{stats.totalResidents}</p>
-                <p className={`mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Total Residents</p>
-                <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>verified</p>
-              </div>
-
-              {/* Unverified Residents */}
-              <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-3 ${theme === 'dark' ? 'bg-red-500/20' : 'bg-red-50'} rounded-xl`}>
-                    <UserX className={`w-6 h-6 ${theme === 'dark' ? 'text-red-400' : 'text-red-500'}`} />
-                  </div>
-                </div>
-                <p className={`text-3xl font-bold mb-1 ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>{stats.unverifiedResidents}</p>
-                <p className={`mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Unverified Residents</p>
-                <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>awaiting verification</p>
-              </div>
-
-              {/* Active Complaints */}
-              <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-3 ${theme === 'dark' ? 'bg-orange-500/20' : 'bg-orange-50'} rounded-xl`}>
-                    <AlertTriangle className={`w-6 h-6 ${theme === 'dark' ? 'text-orange-400' : 'text-orange-500'}`} />
-                  </div>
-                </div>
-                <p className={`text-3xl mb-1 ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>{stats.activeComplaints}</p>
-                <p className={`mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Active Complaints</p>
-                <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{stats.pendingComplaints} pending</p>
-              </div>
-
-              {/* Active Notices */}
-              <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-3 ${theme === 'dark' ? 'bg-purple-500/20' : 'bg-purple-50'} rounded-xl`}>
-                    <Bell className={`w-6 h-6 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-500'}`} />
-                  </div>
-                </div>
-                <p className={`text-3xl mb-1 ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>{stats.activeNotices}</p>
-                <p className={`mb-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Active Notices</p>
-                <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>posted on board</p>
-              </div>
-            </>
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={graphs.activityData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333333' : '#E2E8F0'} />
+                <XAxis dataKey="time" stroke={theme === 'dark' ? '#94A3B8' : '#64748B'} fontSize={12} />
+                <YAxis stroke={theme === 'dark' ? '#94A3B8' : '#64748B'} fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: theme === 'dark' ? '#171717' : '#ffffff',
+                    border: `1px solid ${theme === 'dark' ? '#333333' : '#E2E8F0'}`,
+                    borderRadius: '18px',
+                    color: theme === 'dark' ? '#F2F2F2' : '#0F172A',
+                  }}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="logins" name="Logins" stroke="#57cf85" strokeWidth={2.5} dot={{ fill: '#57cf85', r: 4 }} />
+                <Line type="monotone" dataKey="complaints" name="Complaints" stroke="#F97316" strokeWidth={2.5} dot={{ fill: '#F97316', r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
           )}
-        </div>
-      )}
+        </AdminPanel>
 
-      {/* Graphs */}
-      {graphError ? (
-        <div className={`${theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50'} rounded-xl p-6 text-center`}>
-          <p className={`${theme === 'dark' ? 'text-red-400' : 'text-red-600'} mb-3`}>{graphError}</p>
-          <button onClick={fetchGraphData} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg mx-auto hover:bg-red-700">
-            <RefreshCw className="w-4 h-4" /> Retry
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {graphLoading ? (
-            <>
-              <GraphSkeleton /><GraphSkeleton />
-            </>
+        <AdminPanel theme={theme} className="p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className={`text-lg font-semibold ${styles.pageTitle}`}>Operational Queues</h3>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>What needs admin attention right now.</p>
+            </div>
+            <UserCircle className="h-5 w-5 text-[#57cf85]" />
+          </div>
+
+          <div className="space-y-3">
+            {[
+              { label: 'Unverified residents', value: stats.unverifiedResidents, tone: stats.unverifiedResidents > 0 ? 'amber' : 'green' },
+              { label: 'Pending providers', value: stats.pendingProviders, tone: stats.pendingProviders > 0 ? 'amber' : 'green' },
+              { label: 'Open SOS alerts', value: stats.openSosAlerts, tone: stats.openSosAlerts > 0 ? 'red' : 'green' },
+              { label: 'Pending complaints', value: stats.pendingComplaints, tone: stats.pendingComplaints > 0 ? 'amber' : 'green' },
+              { label: 'Live notice posts', value: stats.activeNotices, tone: 'blue' },
+              { label: 'Service listings', value: stats.servicesCount, tone: 'blue' },
+            ].map((item) => (
+              <div key={item.label} className={`flex items-center justify-between rounded-2xl border p-4 ${styles.panel}`}>
+                <div>
+                  <p className={`font-medium ${styles.pageTitle}`}>{item.label}</p>
+                  <p className={`mt-1 text-sm ${styles.mutedText}`}>Connected with the mobile app backend</p>
+                </div>
+                <StatusBadge label={String(item.value)} tone={item.tone as any} />
+              </div>
+            ))}
+          </div>
+        </AdminPanel>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_1fr]">
+        <AdminPanel theme={theme} className="p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className={`text-lg font-semibold ${styles.pageTitle}`}>Complaint Resolution</h3>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>Weekly resolved vs pending complaint movement.</p>
+            </div>
+            <AlertTriangle className="h-5 w-5 text-orange-500" />
+          </div>
+
+          {graphs.resolutionData.length === 0 ? (
+            <div className={`flex h-[300px] items-center justify-center rounded-3xl border ${styles.panel}`}>
+              <p className={`text-sm ${styles.mutedText}`}>No resolution graph data is available yet.</p>
+            </div>
           ) : (
-            <>
-              {/* Platform Activity Graph */}
-              <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-lg ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>Platform Activity (24h)</h3>
-                  <button onClick={fetchGraphData} className={`p-2 rounded-lg ${theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-100'}`}>
-                    <RefreshCw className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
-                  </button>
-                </div>
-                {graphData.activityData.length === 0 ? (
-                  <div className="h-64 flex items-center justify-center">
-                    <p className={`${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>No activity data available</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={graphData.activityData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333333' : '#f0f0f0'} />
-                      <XAxis dataKey="time" stroke={theme === 'dark' ? '#999' : '#999'} fontSize={12} />
-                      <YAxis stroke={theme === 'dark' ? '#999' : '#999'} fontSize={12} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: theme === 'dark' ? '#1F1F1F' : '#fff',
-                          border: `1px solid ${theme === 'dark' ? '#333333' : '#e5e7eb'}`,
-                          color: theme === 'dark' ? '#F2F2F2' : '#000',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
-                      <Line type="monotone" dataKey="logins" name="Logins" stroke="#00c878" strokeWidth={2} dot={{ fill: '#00c878', r: 4 }} />
-                      <Line type="monotone" dataKey="complaints" name="Complaints" stroke="#f97316" strokeWidth={2} dot={{ fill: '#f97316', r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              {/* Complaint Resolution Graph */}
-              <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-lg ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>Complaint Resolution (Weekly)</h3>
-                  <button onClick={fetchGraphData} className={`p-2 rounded-lg ${theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-100'}`}>
-                    <RefreshCw className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
-                  </button>
-                </div>
-                {graphData.resolutionData.length === 0 ? (
-                  <div className="h-64 flex items-center justify-center">
-                    <p className={`${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>No resolution data available</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={graphData.resolutionData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333333' : '#f0f0f0'} />
-                      <XAxis dataKey="day" stroke={theme === 'dark' ? '#999' : '#999'} fontSize={12} />
-                      <YAxis stroke={theme === 'dark' ? '#999' : '#999'} fontSize={12} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: theme === 'dark' ? '#1F1F1F' : '#fff',
-                          border: `1px solid ${theme === 'dark' ? '#333333' : '#e5e7eb'}`,
-                          color: theme === 'dark' ? '#F2F2F2' : '#000',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
-                      <Bar dataKey="resolved" name="Resolved" fill="#00c878" radius={[8, 8, 0, 0]} />
-                      <Bar dataKey="pending" name="Pending" fill={theme === 'dark' ? '#555555' : '#e0e0e0'} radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={graphs.resolutionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333333' : '#E2E8F0'} />
+                <XAxis dataKey="day" stroke={theme === 'dark' ? '#94A3B8' : '#64748B'} fontSize={12} />
+                <YAxis stroke={theme === 'dark' ? '#94A3B8' : '#64748B'} fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: theme === 'dark' ? '#171717' : '#ffffff',
+                    border: `1px solid ${theme === 'dark' ? '#333333' : '#E2E8F0'}`,
+                    borderRadius: '18px',
+                    color: theme === 'dark' ? '#F2F2F2' : '#0F172A',
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="resolved" name="Resolved" fill="#57cf85" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="pending" name="Pending" fill="#94A3B8" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
-        </div>
-      )}
+        </AdminPanel>
+
+        <AdminPanel theme={theme} className="p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className={`text-lg font-semibold ${styles.pageTitle}`}>System Snapshot</h3>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>Finance, safety, and communication at a glance.</p>
+            </div>
+            <CreditCard className="h-5 w-5 text-[#57cf85]" />
+          </div>
+
+          <div className="space-y-3">
+            <div className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <p className={`text-xs uppercase tracking-[0.15em] ${styles.mutedText}`}>Resident base</p>
+              <p className={`mt-2 text-2xl font-semibold ${styles.pageTitle}`}>{displayStat(stats.totalResidents)}</p>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>{displayStat(stats.activeResidents)} active, {displayStat(stats.unverifiedResidents)} waiting</p>
+            </div>
+            <div className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <p className={`text-xs uppercase tracking-[0.15em] ${styles.mutedText}`}>Safety & events</p>
+              <p className={`mt-2 text-2xl font-semibold ${styles.pageTitle}`}>{displayStat(stats.openSosAlerts)} SOS • {displayStat(stats.activeEvents)} events</p>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>Live incident and engagement monitoring</p>
+            </div>
+            <div className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <p className={`text-xs uppercase tracking-[0.15em] ${styles.mutedText}`}>Listings ecosystem</p>
+              <p className={`mt-2 text-2xl font-semibold ${styles.pageTitle}`}>{loading || statsUnavailable ? '--' : stats.servicesCount + stats.propertyListings + stats.lostFoundCount}</p>
+              <p className={`mt-1 text-sm ${styles.mutedText}`}>Services, property, and lost-and-found combined</p>
+            </div>
+          </div>
+        </AdminPanel>
+      </div>
     </div>
   );
 }

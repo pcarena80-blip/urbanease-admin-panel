@@ -57,12 +57,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
                 <div className="w-full max-w-md space-y-6 sm:space-y-8">
                     {/* Brand Header */}
                     <div className="flex items-center gap-2 mb-8">
-                        <div className="p-2 bg-[#00c878] rounded-lg">
+                        <div className="rounded-lg bg-[#57cf85] p-2">
                             <Shield className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <h1 className="text-2xl font-bold text-[#00c878] leading-none">UrbanEase</h1>
-                            <span className="text-lg font-bold text-[#00c878] leading-none">Admin</span>
+                            <h1 className="text-2xl font-bold leading-none text-[#57cf85]">UrbanEase</h1>
+                            <span className="text-lg font-bold leading-none text-[#57cf85]">Admin</span>
                         </div>
                     </div>
 
@@ -90,7 +90,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                                         value={email}
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                                         required
-                                        className="w-full h-12 pl-10 border border-gray-200 bg-gray-50 focus:bg-white focus:border-[#00c878] focus:ring-[#00c878] transition-all rounded-xl outline-none"
+                                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 outline-none transition-all focus:border-[#57cf85] focus:bg-white focus:ring-[#57cf85]"
                                     />
                                 </div>
                             </div>
@@ -106,7 +106,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                                         required
                                         placeholder="••••••••"
-                                        className="w-full h-12 pl-10 pr-10 border border-gray-200 bg-gray-50 focus:bg-white focus:border-[#00c878] focus:ring-[#00c878] transition-all rounded-xl outline-none"
+                                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 outline-none transition-all focus:border-[#57cf85] focus:bg-white focus:ring-[#57cf85]"
                                     />
                                     <button
                                         type="button"
@@ -124,11 +124,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
                                         type="checkbox"
                                         checked={rememberMe}
                                         onChange={(e) => setRememberMe(e.target.checked)}
-                                        className="w-4 h-4 rounded border-gray-300 text-[#00c878] focus:ring-[#00c878] accent-[#00c878]"
+                                        className="h-4 w-4 rounded border-gray-300 text-[#57cf85] accent-[#57cf85] focus:ring-[#57cf85]"
                                     />
                                     <span className="text-sm text-gray-600">Remember me</span>
                                 </label>
-                                <a href="#" className="self-start text-sm font-medium text-[#00c878] hover:text-[#009624] transition-colors sm:self-auto">
+                                <a href="#" className="self-start text-sm font-medium text-[#57cf85] transition-colors hover:text-[#47b772] sm:self-auto">
                                     Forgot password?
                                 </a>
                             </div>
@@ -136,7 +136,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
                         <button
                             type="submit"
-                            className="w-full h-12 bg-gradient-to-r from-[#00c878] to-[#00e68a] hover:opacity-90 text-white font-semibold text-lg shadow-lg shadow-[#00c878]/30 transition-all hover:shadow-[#00c878]/50 rounded-xl flex items-center justify-center gap-2"
+                            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#57cf85] text-lg font-semibold text-white shadow-lg shadow-[#57cf85]/30 transition-all hover:bg-[#4fc57a] hover:shadow-[#57cf85]/45"
                             disabled={loading}
                         >
                             {loading ? (
@@ -155,7 +155,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             </div>
 
             {/* RIGHT SIDE - BRIEFING / BRANDING */}
-            <div className="hidden lg:flex w-1/2 bg-gradient-to-r from-[#00c878] to-[#00e68a] flex-col items-center justify-center p-12 text-white relative overflow-hidden shadow-lg">
+            <div className="relative hidden w-1/2 flex-col items-center justify-center overflow-hidden bg-[#57cf85] p-12 text-white shadow-lg lg:flex">
                 {/* Decorative background curve */}
                 <div className="absolute bottom-0 left-0 right-0 h-64 bg-white/5 opacity-50" style={{ clipPath: 'ellipse(70% 50% at 50% 100%)' }}></div>
                 <div className="absolute bottom-0 left-0 right-0 h-48 bg-white/10 opacity-30" style={{ clipPath: 'ellipse(60% 60% at 50% 100%)' }}></div>

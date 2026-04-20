@@ -137,7 +137,7 @@ export function Settings() {
           {role === 'superadmin' ? 'Super Admin Profile' : 'Admin Profile'}
         </h3>
         <div className="flex items-start gap-6 mb-6">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[#00c878] to-[#00e68a] flex items-center justify-center text-white text-3xl">
+          <div className="w-24 h-24 rounded-full bg-[#57cf85] flex items-center justify-center text-white text-3xl">
             {role === 'superadmin' ? 'SA' : 'A'}
           </div>
           <div className="flex-1 space-y-4">
@@ -205,13 +205,13 @@ export function Settings() {
       {/* Change Password Section */}
       <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
         <div className="flex items-center gap-2 mb-4">
-          <KeyRound className={`w-5 h-5 ${theme === 'dark' ? 'text-[#00c878]' : 'text-[#00c878]'}`} />
+          <KeyRound className="w-5 h-5 text-[#57cf85]" />
           <h3 className={`text-lg ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>Change Password</h3>
         </div>
 
         {pwdMessage.text && (
           <div className={`p-3 rounded-lg mb-4 text-sm ${pwdMessage.type === 'success'
-            ? (theme === 'dark' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-green-50 text-green-700 border border-green-200')
+            ? (theme === 'dark' ? 'border-[#57cf85]/20 bg-[#57cf85]/12 text-[#57cf85]' : 'border-[#57cf85]/20 bg-[#57cf85]/12 text-[#57cf85]')
             : (theme === 'dark' ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-red-50 text-red-700 border border-red-200')
             }`}>
             {pwdMessage.text}
@@ -230,9 +230,9 @@ export function Settings() {
                 onChange={e => setCurrentPassword(e.target.value)}
                 required
                 className={`w-full pl-12 pr-4 py-3 rounded-lg border ${theme === 'dark'
-                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                  : 'bg-white border-gray-200 focus:border-[#00c878]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                  : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
               />
             </div>
           </div>
@@ -247,9 +247,9 @@ export function Settings() {
                 onChange={e => setNewPwd(e.target.value)}
                 required
                 className={`w-full pl-12 pr-4 py-3 rounded-lg border ${theme === 'dark'
-                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                  : 'bg-white border-gray-200 focus:border-[#00c878]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                  : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
               />
             </div>
           </div>
@@ -264,16 +264,16 @@ export function Settings() {
                 onChange={e => setConfirmPwd(e.target.value)}
                 required
                 className={`w-full pl-12 pr-4 py-3 rounded-lg border ${theme === 'dark'
-                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                  : 'bg-white border-gray-200 focus:border-[#00c878]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                  : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
               />
             </div>
           </div>
           <button
             type="submit"
             disabled={pwdLoading}
-            className="px-6 py-3 bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white rounded-lg hover:shadow-lg transition-shadow disabled:opacity-50"
+            className="px-6 py-3 bg-[#57cf85] text-white rounded-lg hover:shadow-lg transition-shadow disabled:opacity-50"
           >
             {pwdLoading ? 'Updating...' : 'Update Password'}
           </button>
@@ -285,7 +285,7 @@ export function Settings() {
         <div className={`${theme === 'dark' ? 'bg-[#1F1F1F] border-[#333333]' : 'bg-white border-gray-100'} rounded-xl p-6 shadow-sm border`}>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <Shield className={`w-5 h-5 ${theme === 'dark' ? 'text-[#00c878]' : 'text-[#00c878]'}`} />
+              <Shield className="w-5 h-5 text-[#57cf85]" />
               <div>
                 <h3 className={`text-lg ${theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>
                   Create Admin Account
@@ -297,7 +297,7 @@ export function Settings() {
             </div>
             <button
               onClick={() => { setShowAddModal(!showAddModal); setAddMessage({ text: '', type: '' }); }}
-              className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white rounded-xl hover:shadow-lg transition-shadow">
+              className="flex items-center gap-2 px-4 py-3 bg-[#57cf85] text-white rounded-xl hover:shadow-lg transition-shadow">
               <UserPlus className="w-5 h-5" />
               {showAddModal ? 'Cancel' : 'Add New Admin'}
             </button>
@@ -305,7 +305,7 @@ export function Settings() {
 
           {addMessage.text && (
             <div className={`p-3 rounded-lg mb-4 text-sm ${addMessage.type === 'success'
-              ? (theme === 'dark' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-green-50 text-green-700 border border-green-200')
+              ? (theme === 'dark' ? 'border-[#57cf85]/20 bg-[#57cf85]/12 text-[#57cf85]' : 'border-[#57cf85]/20 bg-[#57cf85]/12 text-[#57cf85]')
               : (theme === 'dark' ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-red-50 text-red-700 border border-red-200')
               }`}>
               {addMessage.text}
@@ -328,9 +328,9 @@ export function Settings() {
                       value={newEmail}
                       onChange={e => setNewEmail(e.target.value)}
                       className={`w-full pl-12 pr-4 py-3 rounded-lg border ${theme === 'dark'
-                        ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                        : 'bg-white border-gray-200 focus:border-[#00c878]'
-                        } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                        ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                        : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                        } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
                     />
                   </div>
                 </div>
@@ -346,16 +346,16 @@ export function Settings() {
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       className={`w-full pl-12 pr-4 py-3 rounded-lg border ${theme === 'dark'
-                        ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                        : 'bg-white border-gray-200 focus:border-[#00c878]'
-                        } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                        ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                        : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                        } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
                     />
                   </div>
                 </div>
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white rounded-lg hover:shadow-lg transition-shadow disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-3 bg-[#57cf85] text-white rounded-lg hover:shadow-lg transition-shadow disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   {addLoading ? 'Creating...' : 'Create Admin Account'}
@@ -380,7 +380,7 @@ export function Settings() {
                     <tr key={admin._id} className={theme === 'dark' ? 'hover:bg-[#2A2A2A]' : 'hover:bg-gray-50'}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00c878] to-[#00e68a] flex items-center justify-center text-white">
+                          <div className="w-10 h-10 rounded-full bg-[#57cf85] flex items-center justify-center text-white">
                             {admin.name?.charAt(0) || 'A'}
                           </div>
                           <span className={theme === 'dark' ? 'text-[#F2F2F2]' : 'text-gray-900'}>{admin.name}</span>

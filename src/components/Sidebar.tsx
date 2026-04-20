@@ -1,4 +1,4 @@
-import { Home, Users, CreditCard, AlertTriangle, Bell, MessageSquare, Settings, Car, X } from 'lucide-react';
+import { Bell, Car, CreditCard, Home, Layers3, MessageSquare, Settings, Users, X, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRole } from '../contexts/RoleContext';
 
@@ -15,11 +15,13 @@ export function Sidebar({ activePage, setActivePage, isOpen, onClose }: SidebarP
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'residents', label: 'Residents', icon: Users },
-    { id: 'carpool', label: 'Carpooling', icon: Car }, // Replaced Bills
+    { id: 'profiles', label: 'Profiles & Directory', icon: Users },
+    { id: 'finance', label: 'Billing & Payments', icon: CreditCard },
     { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
     { id: 'announcements', label: 'E-Notice Board', icon: Bell },
     { id: 'chat', label: 'Chat Moderation', icon: MessageSquare },
+    { id: 'carpool', label: 'Carpooling', icon: Car },
+    { id: 'ops', label: 'Community Ops', icon: Layers3 },
     { id: 'settings', label: 'Settings', icon: Settings },
   ].filter(item => item.id !== 'settings' || role === 'superadmin');
 
@@ -31,7 +33,7 @@ export function Sidebar({ activePage, setActivePage, isOpen, onClose }: SidebarP
       />
       <div className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] -translate-x-full ${theme === 'dark' ? 'bg-[#1A1A1A] border-[#333333]' : 'bg-white border-gray-200'} border-r flex flex-col transition-transform duration-300 md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 ${isOpen ? 'translate-x-0' : ''}`}>
       <div className={`flex items-center justify-between p-5 sm:p-6 ${theme === 'dark' ? 'border-[#333333]' : 'border-gray-200'} border-b`}>
-        <h1 className="text-lg sm:text-xl bg-gradient-to-r from-[#00c878] to-[#00e68a] bg-clip-text text-transparent">
+        <h1 className="text-lg sm:text-xl text-[#57cf85]">
           UrbanEase Admin
         </h1>
         <button
@@ -55,14 +57,14 @@ export function Sidebar({ activePage, setActivePage, isOpen, onClose }: SidebarP
                 onClose();
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive
-                ? 'bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white shadow-md'
+                ? 'bg-[#57cf85] text-white shadow-md'
                 : theme === 'dark'
                   ? 'text-[#F2F2F2] hover:bg-[#2A2A2A]'
                   : 'text-gray-600 hover:bg-gray-100'
                 }`}
             >
-              <div className={`p-2 rounded-lg ${isActive ? 'bg-white/20' : theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-green-50'}`}>
-                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : theme === 'dark' ? 'text-white opacity-70' : 'text-[#00c878]'}`} />
+              <div className={`p-2 rounded-lg ${isActive ? 'bg-white/20' : theme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-[#57cf85]/12'}`}>
+                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : theme === 'dark' ? 'text-white opacity-70' : 'text-[#57cf85]'}`} />
               </div>
               <span className={isActive ? '' : ''}>{item.label}</span>
             </button>

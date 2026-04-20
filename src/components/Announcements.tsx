@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Calendar, Clock, History, Bell, AlertCircle, Upload } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import api from '../services/api';
-
-// Derive the server root URL from the API base URL (strip /api)
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const SERVER_ROOT = API_BASE.replace(/\/api\/?$/, '');
+import { useLiveRefresh } from './AdminShared';
+import { resolveMediaUrl } from '../utils/media';
 
 interface Notice {
   _id: string;
@@ -39,9 +37,11 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
 
   const fetchNotices = async () => {
     try {
-      setLoading(true);
+      if (!notices.length) {
+        setLoading(true);
+      }
       const response = await api.get('/admin/notices');
-      setNotices(response.data);
+      setNotices(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Failed to fetch notices", error);
       setError('Failed to load notices');
@@ -63,14 +63,19 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
   };
 
   useEffect(() => {
-    fetchNotices();
-  }, []);
-
-  useEffect(() => {
     if (activeTab === 'history' && historyNotices.length === 0) {
       fetchHistoryNotices();
     }
-  }, [activeTab]);
+  }, [activeTab, historyNotices.length]);
+
+  useLiveRefresh(async () => {
+    if (activeTab === 'history') {
+      await fetchHistoryNotices();
+      return;
+    }
+
+    await fetchNotices();
+  }, 15000, [activeTab, notices.length, historyNotices.length]);
 
   const validateForm = (): boolean => {
     setFormError(null);
@@ -177,7 +182,7 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white rounded-xl hover:shadow-lg transition-shadow"
+          className="flex items-center gap-2 px-4 py-3 bg-[#57cf85] text-white rounded-xl hover:shadow-lg transition-shadow"
         >
           <Plus className="w-5 h-5" />
           Create Announcement
@@ -189,7 +194,7 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
         <button
           onClick={() => setActiveTab('active')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${activeTab === 'active'
-            ? 'bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white'
+            ? 'bg-[#57cf85] text-white'
             : theme === 'dark'
               ? 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -201,7 +206,7 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
         <button
           onClick={() => setActiveTab('history')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${activeTab === 'history'
-            ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white'
+            ? 'bg-[#57cf85] text-white'
             : theme === 'dark'
               ? 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -233,9 +238,9 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Enter announcement title"
                 className={`w-full px-4 py-3 rounded-lg border ${theme === 'dark'
-                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                  : 'bg-white border-gray-200 focus:border-[#00c878]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                  : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
               />
             </div>
             <div>
@@ -246,9 +251,9 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Enter announcement details"
                 className={`w-full px-4 py-3 rounded-lg border ${theme === 'dark'
-                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#00c878]'
-                  : 'bg-white border-gray-200 focus:border-[#00c878]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] placeholder-gray-500 focus:border-[#57cf85]'
+                  : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
               ></textarea>
             </div>
 
@@ -282,9 +287,9 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
                 min={today}
                 onChange={(e) => setExpiryDate(e.target.value)}
                 className={`w-full px-4 py-3 rounded-lg border ${theme === 'dark'
-                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] focus:border-[#00c878]'
-                  : 'bg-white border-gray-200 focus:border-[#00c878]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#00c878]/20`}
+                  ? 'bg-[#1A1A1A] border-[#333333] text-[#F2F2F2] focus:border-[#57cf85]'
+                  : 'bg-white border-gray-200 focus:border-[#57cf85]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#57cf85]/20`}
               />
               <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
                 Notice will move to history after this date
@@ -294,7 +299,7 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
               <button
                 onClick={handleCreateNotice}
                 disabled={submitting}
-                className={`px-6 py-3 bg-gradient-to-r from-[#00c878] to-[#00e68a] text-white rounded-lg hover:shadow-lg transition-shadow ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                className={`px-6 py-3 bg-[#57cf85] text-white rounded-lg hover:shadow-lg transition-shadow ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}>
                 {submitting ? 'Publishing...' : 'Publish Announcement'}
               </button>
               <button
@@ -338,9 +343,7 @@ export function Announcements({ searchQuery = '' }: { searchQuery?: string }) {
 
                   {/* Attachment Image */}
                   {notice.attachment && (() => {
-                    const imgUrl = notice.attachment.startsWith('http')
-                      ? notice.attachment
-                      : `${SERVER_ROOT}/${notice.attachment.replace(/\\/g, '/')}`;
+                    const imgUrl = resolveMediaUrl(notice.attachment);
                     console.log('Image URL for notice', notice.title, ':', imgUrl);
                     return (
                       <div className="mb-3">
